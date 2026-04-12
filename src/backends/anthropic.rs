@@ -35,6 +35,8 @@ use serde_json::Value;
 pub struct AnthropicConfig {
     /// API key for authentication with Anthropic.
     pub api_key: String,
+    /// Base URL or full messages endpoint for Anthropic-compatible APIs.
+    pub base_url: String,
     /// Model identifier (e.g., "claude-3-sonnet-20240229").
     pub model: String,
     /// Maximum tokens to generate in responses.
@@ -91,6 +93,14 @@ struct ThinkingConfig {
     #[serde(rename = "type")]
     thinking_type: String,
     budget_tokens: u32,
+}
+
+fn normalize_base_url(base_url: Option<String>) -> String {
+    match base_url {
+        Some(url) if url.ends_with("/messages") => url,
+        Some(url) => format!("{}/messages", url.trim_end_matches('/')),
+        None => "https://api.anthropic.com/v1/messages".to_string(),
+    }
 }
 
 /// System prompt in the request - can be either a string or vector of content objects
@@ -155,6 +165,9 @@ struct MessageContent<'a> {
     tool_result_id: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none", rename = "content")]
     tool_output: Option<String>,
+    // cache control for prompt caching
+    #[serde(skip_serializing_if = "Option::is_none")]
+    cache_control: Option<Value>,
 }
 
 #[derive(Serialize, Debug)]
@@ -368,6 +381,7 @@ impl Anthropic {
                         tool_name: None,
                         tool_result_id: None,
                         tool_output: None,
+                        cache_control: m.cache_control.clone(),
                     }],
                     MessageType::Pdf(raw_bytes) => {
                         vec![MessageContent {
@@ -384,6 +398,7 @@ impl Anthropic {
                             tool_name: None,
                             tool_result_id: None,
                             tool_output: None,
+                            cache_control: m.cache_control.clone(),
                         }]
                     }
                     MessageType::Image((image_mime, raw_bytes)) => {
@@ -401,6 +416,7 @@ impl Anthropic {
                             tool_name: None,
                             tool_result_id: None,
                             tool_output: None,
+                            cache_control: m.cache_control.clone(),
                         }]
                     }
                     MessageType::ImageURL(ref url) => vec![MessageContent {
@@ -413,6 +429,7 @@ impl Anthropic {
                         tool_name: None,
                         tool_result_id: None,
                         tool_output: None,
+                        cache_control: m.cache_control.clone(),
                     }],
                     MessageType::Audio(_) => vec![],
                     MessageType::ToolUse(calls) => calls
@@ -430,6 +447,7 @@ impl Anthropic {
                             tool_name: Some(c.function.name.clone()),
                             tool_result_id: None,
                             tool_output: None,
+                            cache_control: m.cache_control.clone(),
                         })
                         .collect(),
                     MessageType::ToolResult(responses) => responses
@@ -444,6 +462,7 @@ impl Anthropic {
                             tool_name: None,
                             tool_result_id: Some(r.id.clone()),
                             tool_output: Some(r.function.arguments.clone()),
+                            cache_control: m.cache_control.clone(),
                         })
                         .collect(),
                 },
@@ -521,6 +540,7 @@ impl Anthropic {
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         api_key: impl Into<String>,
+        base_url: Option<String>,
         model: Option<String>,
         max_tokens: Option<u32>,
         temperature: Option<f32>,
@@ -541,6 +561,7 @@ impl Anthropic {
         Self::with_client(
             builder.build().expect("Failed to build reqwest Client"),
             api_key,
+            base_url,
             model,
             max_tokens,
             temperature,
@@ -575,6 +596,7 @@ impl Anthropic {
     pub fn with_client(
         client: Client,
         api_key: impl Into<String>,
+        base_url: Option<String>,
         model: Option<String>,
         max_tokens: Option<u32>,
         temperature: Option<f32>,
@@ -590,6 +612,7 @@ impl Anthropic {
         Self {
             config: Arc::new(AnthropicConfig {
                 api_key: api_key.into(),
+                base_url: normalize_base_url(base_url),
                 model: model.unwrap_or_else(|| "claude-3-sonnet-20240229".to_string()),
                 max_tokens: max_tokens.unwrap_or(300),
                 temperature: temperature.unwrap_or(0.7),
@@ -610,6 +633,10 @@ impl Anthropic {
 
     pub fn api_key(&self) -> &str {
         &self.config.api_key
+    }
+
+    pub fn base_url(&self) -> &str {
+        &self.config.base_url
     }
 
     pub fn model(&self) -> &str {
@@ -719,7 +746,7 @@ impl ChatProvider for Anthropic {
 
         let mut request = self
             .client
-            .post("https://api.anthropic.com/v1/messages")
+            .post(&self.config.base_url)
             .header("x-api-key", &self.config.api_key)
             .header("Content-Type", "application/json")
             .header("anthropic-version", "2023-06-01")
@@ -797,6 +824,7 @@ impl ChatProvider for Anthropic {
                         tool_name: None,
                         tool_result_id: None,
                         tool_output: None,
+                        cache_control: m.cache_control.clone(),
                     }],
                     MessageType::Pdf(_) => unimplemented!(),
                     MessageType::Image((image_mime, raw_bytes)) => {
@@ -814,6 +842,7 @@ impl ChatProvider for Anthropic {
                             tool_name: None,
                             tool_result_id: None,
                             tool_output: None,
+                            cache_control: m.cache_control.clone(),
                         }]
                     }
                     _ => vec![MessageContent {
@@ -826,6 +855,7 @@ impl ChatProvider for Anthropic {
                         tool_name: None,
                         tool_result_id: None,
                         tool_output: None,
+                        cache_control: m.cache_control.clone(),
                     }],
                 },
             })
@@ -849,7 +879,7 @@ impl ChatProvider for Anthropic {
 
         let mut request = self
             .client
-            .post("https://api.anthropic.com/v1/messages")
+            .post(&self.config.base_url)
             .header("x-api-key", &self.config.api_key)
             .header("Content-Type", "application/json")
             .header("anthropic-version", "2023-06-01")
@@ -919,7 +949,7 @@ impl ChatProvider for Anthropic {
 
         let mut request = self
             .client
-            .post("https://api.anthropic.com/v1/messages")
+            .post(&self.config.base_url)
             .header("x-api-key", &self.config.api_key)
             .header("Content-Type", "application/json")
             .header("anthropic-version", "2023-06-01")
@@ -1606,8 +1636,7 @@ data: {"type": "ping"}
             cache_control: Some(serde_json::json!({"type": "ephemeral"})),
         }];
 
-        let (anthropic_tools, _) =
-            Anthropic::prepare_tools_and_choice(Some(&tools), None, &None);
+        let (anthropic_tools, _) = Anthropic::prepare_tools_and_choice(Some(&tools), None, &None);
 
         let anthropic_tools = anthropic_tools.expect("tools should be present");
         assert_eq!(anthropic_tools.len(), 1);
@@ -1629,8 +1658,7 @@ data: {"type": "ping"}
             cache_control: None,
         }];
 
-        let (anthropic_tools, _) =
-            Anthropic::prepare_tools_and_choice(Some(&tools), None, &None);
+        let (anthropic_tools, _) = Anthropic::prepare_tools_and_choice(Some(&tools), None, &None);
 
         let anthropic_tools = anthropic_tools.expect("tools should be present");
         assert!(anthropic_tools[0].cache_control.is_none());

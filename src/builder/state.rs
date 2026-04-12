@@ -5,7 +5,7 @@ use crate::{
     memory::MemoryProvider,
 };
 
-use super::{backend::LLMBackend, validation::ValidatorFn};
+use super::{backend::LLMBackend, validation::ValidatorFn, SystemPrompt};
 
 const DEFAULT_VALIDATOR_ATTEMPTS: usize = 3;
 
@@ -18,6 +18,7 @@ pub(crate) struct BuilderState {
     pub(crate) max_tokens: Option<u32>,
     pub(crate) temperature: Option<f32>,
     pub(crate) system: Option<String>,
+    pub(crate) system_prompt: Option<SystemPrompt>,
     pub(crate) timeout_seconds: Option<u64>,
     pub(crate) top_p: Option<f32>,
     pub(crate) top_k: Option<u32>,

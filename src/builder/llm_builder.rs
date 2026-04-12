@@ -65,6 +65,13 @@ impl LLMBuilder {
         self
     }
 
+    /// Sets the system prompt using structured messages with optional cache control.
+    /// This enables Anthropic-style prompt caching with `cache_control` breakpoints.
+    pub fn system_prompt(mut self, prompt: super::SystemPrompt) -> Self {
+        self.state.system_prompt = Some(prompt);
+        self
+    }
+
     /// Sets the reasoning effort level.
     pub fn reasoning_effort(mut self, reasoning_effort: ReasoningEffort) -> Self {
         self.state.reasoning_effort = Some(reasoning_effort.to_string());

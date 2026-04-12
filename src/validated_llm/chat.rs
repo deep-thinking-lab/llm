@@ -40,5 +40,6 @@ fn append_validation_feedback(messages: &mut Vec<ChatMessage>, err: &str) {
         content: format!(
             "Your previous output was invalid because: {err}\nPlease try again and produce a valid response."
         ),
+        cache_control: None,
     });
 }

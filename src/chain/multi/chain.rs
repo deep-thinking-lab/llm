@@ -82,6 +82,7 @@ async fn run_chat(llm: &dyn LLMProvider, prompt_text: String) -> Result<String, 
         role: ChatRole::User,
         message_type: MessageType::Text,
         content: prompt_text,
+        cache_control: None,
     }];
     Ok(llm.chat(&messages).await?.text().unwrap_or_default())
 }

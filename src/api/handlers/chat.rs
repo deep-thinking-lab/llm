@@ -63,6 +63,7 @@ fn build_messages(messages: Option<Vec<Message>>) -> Vec<ChatMessage> {
             role: parse_role(&msg.role),
             message_type: MessageType::Text,
             content: msg.content,
+            cache_control: None,
         })
         .collect()
 }

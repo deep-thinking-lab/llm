@@ -86,6 +86,8 @@ pub struct ChatMessage {
     pub message_type: MessageType,
     /// The text content of the message
     pub content: String,
+    /// Optional cache control hint (e.g., `{"type": "ephemeral"}` for Anthropic)
+    pub cache_control: Option<serde_json::Value>,
 }
 
 impl ChatMessage {
@@ -119,6 +121,7 @@ pub struct ChatMessageBuilder {
     role: ChatRole,
     message_type: MessageType,
     content: String,
+    cache_control: Option<serde_json::Value>,
 }
 
 impl ChatMessageBuilder {
@@ -128,6 +131,7 @@ impl ChatMessageBuilder {
             role,
             message_type: MessageType::default(),
             content: String::new(),
+            cache_control: None,
         }
     }
 
@@ -173,12 +177,19 @@ impl ChatMessageBuilder {
         self
     }
 
+    /// Set cache control hint for prompt caching (e.g., Anthropic ephemeral cache).
+    pub fn cache_control(mut self, cache_control: serde_json::Value) -> Self {
+        self.cache_control = Some(cache_control);
+        self
+    }
+
     /// Build the ChatMessage
     pub fn build(self) -> ChatMessage {
         ChatMessage {
             role: self.role,
             message_type: self.message_type,
             content: self.content,
+            cache_control: self.cache_control,
         }
     }
 }
