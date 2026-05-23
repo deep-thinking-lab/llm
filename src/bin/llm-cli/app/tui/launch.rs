@@ -71,7 +71,7 @@ fn create_new_conversation(
 fn default_provider_selection(controller: &AppController) -> Option<(ProviderId, Option<String>)> {
     let default = SecretStore::new()
         .ok()
-        .and_then(|store| store.get_default_provider().cloned());
+        .and_then(|store| store.get_default_provider_str().map(String::from));
     parse_provider_and_model(default.as_deref()).or_else(|| {
         controller
             .state
