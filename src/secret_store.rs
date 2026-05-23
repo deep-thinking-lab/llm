@@ -188,7 +188,15 @@ impl SecretStore {
             key,
         };
         store.save()?;
-        let _ = std::fs::remove_file(plaintext_path);
+        // Overwrite plaintext with zeros before deleting
+        if let Ok(mut f) = OpenOptions::new().write(true).open(plaintext_path) {
+            let len = f.metadata().map(|m| m.len()).unwrap_or(0);
+            let zeros = vec![0u8; len as usize];
+            let _ = f.write_all(&zeros);
+        }
+        if let Err(e) = std::fs::remove_file(plaintext_path) {
+            log::warn!("Failed to remove plaintext secrets file after migration: {e}");
+        }
         Ok(store)
     }
 
