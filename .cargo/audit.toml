@@ -1,0 +1,26 @@
+# Security audit exceptions for the llm crate.
+# Each entry must include an owner, a date of acceptance, and an expiry date.
+# Review these before expiry and either remove (if fixed upstream) or extend.
+
+[advisories]
+# rustls-webpki 0.101.7 advisories (RUSTSEC-2026-0104, RUSTSEC-2026-0098, RUSTSEC-2026-0099)
+# Blocked on AWS SDK (aws-smithy-http-client -> hyper-rustls 0.24 -> rustls 0.21 -> rustls-webpki 0.101)
+# The AWS SDK has not released a version that uses rustls >= 0.23 for the smithy HTTP client.
+# Monitor: https://github.com/awslabs/aws-sdk-rust
+ignore = [
+    "RUSTSEC-2026-0104",  # Reachable panic in CRL parsing (rustls-webpki 0.101.7)
+    "RUSTSEC-2026-0098",  # Name constraints for URI names (rustls-webpki 0.101.7)
+    "RUSTSEC-2026-0099",  # Name constraints for wildcard names (rustls-webpki 0.101.7)
+    # Unmaintained transitive dependencies — not directly used by llm code.
+    "RUSTSEC-2025-0141",  # bincode unmaintained (via syntect)
+    "RUSTSEC-2024-0436",  # paste unmaintained (via ratatui)
+    "RUSTSEC-2017-0008",  # serial unmaintained (via portable-pty)
+    "RUSTSEC-2024-0320",  # yaml-rust unmaintained (via syntect)
+    "RUSTSEC-2025-0134",  # rustls-pemfile unmaintained (both versions)
+    # Unsound — not exploitable in llm's usage patterns.
+    "RUSTSEC-2026-0002",  # lru IterMut unsound (via ratatui)
+    "RUSTSEC-2026-0097",  # rand unsound with custom logger (llm doesn't use custom logger)
+]
+# Owner: security@voxeltron.dev
+# Accepted: 2026-05-23
+# Expires: 2026-08-23 (3 months)
