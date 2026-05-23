@@ -327,7 +327,10 @@ impl ChatProvider for Phind {
         _messages: &[ChatMessage],
         _tools: Option<&[Tool]>,
     ) -> Result<Box<dyn ChatResponse>, LLMError> {
-        todo!()
+        Err(LLMError::BackendNotImplemented {
+            backend: "Phind",
+            operation: "chat_with_tools",
+        })
     }
 }
 

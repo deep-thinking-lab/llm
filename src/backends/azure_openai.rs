@@ -92,43 +92,54 @@ struct AzureOpenAIChatMessage<'a> {
     tool_call_id: Option<String>,
 }
 
-impl<'a> From<&'a ChatMessage> for AzureOpenAIChatMessage<'a> {
-    fn from(chat_msg: &'a ChatMessage) -> Self {
-        Self {
+impl<'a> TryFrom<&'a ChatMessage> for AzureOpenAIChatMessage<'a> {
+    type Error = LLMError;
+
+    fn try_from(chat_msg: &'a ChatMessage) -> Result<Self, Self::Error> {
+        let content = match &chat_msg.message_type {
+            MessageType::Text => Some(Right(chat_msg.content.clone())),
+            // Inline image bytes are not supported on Azure OpenAI chat
+            // payloads here — callers must convert to `ImageURL` first.
+            MessageType::Image(_) => {
+                return Err(LLMError::UnsupportedMessageType(
+                    "Azure OpenAI chat does not accept inline image bytes; \
+                     use MessageType::ImageURL instead"
+                        .into(),
+                ));
+            }
+            MessageType::Pdf(_) => {
+                return Err(LLMError::UnsupportedMessageType(
+                    "Azure OpenAI chat does not support PDF attachments yet".into(),
+                ));
+            }
+            MessageType::Audio(_) => None,
+            MessageType::ImageURL(url) => Some(Left(vec![AzureMessageContent {
+                message_type: Some("image_url"),
+                text: None,
+                image_url: Some(ImageUrlContent { url }),
+                tool_output: None,
+                tool_call_id: None,
+            }])),
+            MessageType::ToolUse(_) => None,
+            MessageType::ToolResult(_) => None,
+        };
+        let tool_calls = match &chat_msg.message_type {
+            MessageType::ToolUse(calls) => {
+                let owned_calls: Vec<AzureOpenAIToolCall> =
+                    calls.iter().map(|c| c.into()).collect();
+                Some(owned_calls)
+            }
+            _ => None,
+        };
+        Ok(Self {
             role: match chat_msg.role {
                 ChatRole::User => "user",
                 ChatRole::Assistant => "assistant",
             },
             tool_call_id: None,
-            content: match &chat_msg.message_type {
-                MessageType::Text => Some(Right(chat_msg.content.clone())),
-                // Image case is handled separately above
-                MessageType::Image(_) => unreachable!(),
-                MessageType::Pdf(_) => unimplemented!(),
-                MessageType::Audio(_) => None,
-                MessageType::ImageURL(url) => {
-                    // Clone the URL to create an owned version
-
-                    Some(Left(vec![AzureMessageContent {
-                        message_type: Some("image_url"),
-                        text: None,
-                        image_url: Some(ImageUrlContent { url }),
-                        tool_output: None,
-                        tool_call_id: None,
-                    }]))
-                }
-                MessageType::ToolUse(_) => None,
-                MessageType::ToolResult(_) => None,
-            },
-            tool_calls: match &chat_msg.message_type {
-                MessageType::ToolUse(calls) => {
-                    let owned_calls: Vec<AzureOpenAIToolCall> =
-                        calls.iter().map(|c| c.into()).collect();
-                    Some(owned_calls)
-                }
-                _ => None,
-            },
-        }
+            content,
+            tool_calls,
+        })
     }
 }
 
@@ -565,7 +576,7 @@ impl ChatProvider for AzureOpenAI {
                     );
                 }
             } else {
-                openai_msgs.push(msg.into())
+                openai_msgs.push(AzureOpenAIChatMessage::try_from(msg)?);
             }
         }
 

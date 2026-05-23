@@ -519,27 +519,27 @@ impl<T: OpenAIProviderConfig> OpenAICompatibleProvider<T> {
         &self.client
     }
 
-    pub fn prepare_messages(&self, messages: &[ChatMessage]) -> Vec<OpenAIChatMessage<'_>> {
-        let mut openai_msgs: Vec<OpenAIChatMessage> = messages
-            .iter()
-            .flat_map(|msg| {
-                if let MessageType::ToolResult(ref results) = msg.message_type {
-                    // Expand ToolResult into multiple messages
-                    results
-                        .iter()
-                        .map(|result| OpenAIChatMessage {
-                            role: "tool",
-                            tool_call_id: Some(result.id.clone()),
-                            tool_calls: None,
-                            content: Some(Right(result.function.arguments.clone())),
-                        })
-                        .collect::<Vec<_>>()
-                } else {
-                    // Convert single message
-                    vec![chat_message_to_openai_message(msg.clone())]
+    pub fn prepare_messages(
+        &self,
+        messages: &[ChatMessage],
+    ) -> Result<Vec<OpenAIChatMessage<'_>>, LLMError> {
+        let mut openai_msgs: Vec<OpenAIChatMessage> = Vec::with_capacity(messages.len());
+        for msg in messages {
+            if let MessageType::ToolResult(ref results) = msg.message_type {
+                // Expand ToolResult into multiple messages
+                for result in results {
+                    openai_msgs.push(OpenAIChatMessage {
+                        role: "tool",
+                        tool_call_id: Some(result.id.clone()),
+                        tool_calls: None,
+                        content: Some(Right(result.function.arguments.clone())),
+                    });
                 }
-            })
-            .collect();
+            } else {
+                // Convert single message
+                openai_msgs.push(chat_message_to_openai_message(msg.clone())?);
+            }
+        }
         if let Some(system) = &self.config.system {
             openai_msgs.insert(
                 0,
@@ -557,7 +557,7 @@ impl<T: OpenAIProviderConfig> OpenAICompatibleProvider<T> {
                 },
             );
         }
-        openai_msgs
+        Ok(openai_msgs)
     }
 }
 
@@ -576,7 +576,7 @@ impl<T: OpenAIProviderConfig> ChatProvider for OpenAICompatibleProvider<T> {
                 T::PROVIDER_NAME
             )));
         }
-        let openai_msgs = self.prepare_messages(messages);
+        let openai_msgs = self.prepare_messages(messages)?;
         let response_format: Option<OpenAIResponseFormat> = if T::SUPPORTS_STRUCTURED_OUTPUT {
             self.config.json_schema.clone().map(|s| s.into())
         } else {
@@ -707,7 +707,7 @@ impl<T: OpenAIProviderConfig> ChatProvider for OpenAICompatibleProvider<T> {
                 T::PROVIDER_NAME
             )));
         }
-        let openai_msgs = self.prepare_messages(messages);
+        let openai_msgs = self.prepare_messages(messages)?;
         let body = OpenAIChatRequest {
             model: &self.config.model,
             messages: openai_msgs,
@@ -802,7 +802,7 @@ impl<T: OpenAIProviderConfig> ChatProvider for OpenAICompatibleProvider<T> {
             )));
         }
 
-        let openai_msgs = self.prepare_messages(messages);
+        let openai_msgs = self.prepare_messages(messages)?;
 
         // Use provided tools or fall back to configured tools
         let effective_tools = tools
@@ -1105,28 +1105,41 @@ struct OpenAIToolStreamFunction {
 }
 
 /// Create OpenAICompatibleChatMessage` that doesn't borrow from any temporary variables
-pub fn chat_message_to_openai_message(chat_msg: ChatMessage) -> OpenAIChatMessage<'static> {
-    OpenAIChatMessage {
+pub fn chat_message_to_openai_message(
+    chat_msg: ChatMessage,
+) -> Result<OpenAIChatMessage<'static>, LLMError> {
+    let content = match &chat_msg.message_type {
+        MessageType::Text => Some(Right(chat_msg.content.clone())),
+        MessageType::Image(_) => {
+            return Err(LLMError::UnsupportedMessageType(
+                "OpenAI-compatible chat does not accept inline image bytes; \
+                 use MessageType::ImageURL instead"
+                    .into(),
+            ));
+        }
+        MessageType::Pdf(_) => {
+            return Err(LLMError::UnsupportedMessageType(
+                "OpenAI-compatible chat does not support PDF attachments yet".into(),
+            ));
+        }
+        MessageType::Audio(_) => None,
+        MessageType::ImageURL(url) => Some(Left(vec![OpenAIMessageContent {
+            message_type: Some("image_url"),
+            text: None,
+            image_url: Some(ImageUrlContent { url: url.clone() }),
+            tool_output: None,
+            tool_call_id: None,
+        }])),
+        MessageType::ToolUse(_) => None,
+        MessageType::ToolResult(_) => None,
+    };
+    Ok(OpenAIChatMessage {
         role: match chat_msg.role {
             ChatRole::User => "user",
             ChatRole::Assistant => "assistant",
         },
         tool_call_id: None,
-        content: match &chat_msg.message_type {
-            MessageType::Text => Some(Right(chat_msg.content.clone())),
-            MessageType::Image(_) => unreachable!(),
-            MessageType::Pdf(_) => unimplemented!(),
-            MessageType::Audio(_) => None,
-            MessageType::ImageURL(url) => Some(Left(vec![OpenAIMessageContent {
-                message_type: Some("image_url"),
-                text: None,
-                image_url: Some(ImageUrlContent { url: url.clone() }),
-                tool_output: None,
-                tool_call_id: None,
-            }])),
-            MessageType::ToolUse(_) => None,
-            MessageType::ToolResult(_) => None,
-        },
+        content,
         tool_calls: match &chat_msg.message_type {
             MessageType::ToolUse(calls) => {
                 let owned_calls: Vec<ToolCall> = calls
@@ -1144,7 +1157,7 @@ pub fn chat_message_to_openai_message(chat_msg: ChatMessage) -> OpenAIChatMessag
             }
             _ => None,
         },
-    }
+    })
 }
 
 /// Creates a structured SSE stream that returns `StreamResponse` objects
