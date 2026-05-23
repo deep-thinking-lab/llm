@@ -14,7 +14,7 @@ homepage = "https://github.com/graniet/llm"
 default-run = "llm"
 
 [features]
-default = ["cli", "default-tls"]
+default = ["cli", "default-tls", "keyring"]
 default-tls = ["reqwest/default-tls"]
 rustls-tls = ["reqwest/rustls-tls"]
 full = [
