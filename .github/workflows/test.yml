@@ -12,7 +12,7 @@ on:
 jobs:
   test:
     name: ✅ Test and build
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     # if: github.event_name != 'pull_request_target'
     steps:
       - uses: actions/checkout@v4
