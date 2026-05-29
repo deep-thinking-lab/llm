@@ -31,7 +31,7 @@ fn handle_get(store: &SecretStore, args: &CliArgs) {
     let Some(key) = args.provider_or_key.as_deref() else {
         return;
     };
-    if let Some(value) = store.get(key) {
+    if let Some(value) = store.get_str(key) {
         println!("{key}: {value}");
     } else {
         println!("Secret '{}' not found", key);
@@ -50,7 +50,7 @@ fn handle_default(store: &mut SecretStore, args: &CliArgs) -> anyhow::Result<()>
     if let Some(provider) = args.provider_or_key.as_deref() {
         store.set_default_provider(provider)?;
         println!("Default provider set to {provider}");
-    } else if let Some(provider) = store.get_default_provider() {
+    } else if let Some(provider) = store.get_default_provider_str() {
         println!("Default provider: {provider}");
     } else {
         println!("No default provider set");
@@ -71,7 +71,7 @@ pub async fn list_models(
 ) -> anyhow::Result<()> {
     let default_provider = SecretStore::new()
         .ok()
-        .and_then(|store| store.get_default_provider().cloned());
+        .and_then(|store| store.get_default_provider_str().map(String::from));
     let selection = resolve_selection(args, config, default_provider)?;
     let overrides = ProviderOverrides::default();
     let factory = ProviderFactory::new(config, registry);

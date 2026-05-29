@@ -105,7 +105,7 @@ fn api_key_from_backend(backend: &LLMBackend, secrets: Option<&SecretStore>) -> 
     let key = backend_env_key(backend)?;
     std::env::var(key)
         .ok()
-        .or_else(|| secrets.and_then(|store| store.get(key).cloned()))
+        .or_else(|| secrets.and_then(|store| store.get_str(key).map(String::from)))
 }
 
 fn backend_label(backend: &LLMBackend) -> String {

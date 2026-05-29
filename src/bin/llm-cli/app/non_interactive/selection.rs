@@ -11,7 +11,7 @@ pub(super) fn resolve_provider(
 ) -> anyhow::Result<ProviderSelection> {
     let default_provider = SecretStore::new()
         .ok()
-        .and_then(|store| store.get_default_provider().cloned());
+        .and_then(|store| store.get_default_provider_str().map(String::from));
     resolve_selection(args, config, default_provider).map_err(|err| anyhow::anyhow!(err))
 }
 

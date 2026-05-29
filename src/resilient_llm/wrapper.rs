@@ -60,6 +60,8 @@ impl ResilientLLM {
             LLMError::AuthError(_) => false,
             LLMError::InvalidRequest(_) => false,
             LLMError::ToolConfigError(_) => false,
+            LLMError::UnsupportedMessageType(_) => false,
+            LLMError::BackendNotImplemented { .. } => false,
         }
     }
 

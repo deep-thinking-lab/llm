@@ -806,6 +806,19 @@ impl ChatProvider for Anthropic {
             return Err(LLMError::AuthError("Missing Anthropic API key".to_string()));
         }
 
+        // PDF attachments are not yet plumbed through the Anthropic streaming
+        // path. Fail loudly with a typed error rather than panicking.
+        if messages
+            .iter()
+            .any(|m| matches!(m.message_type, MessageType::Pdf(_)))
+        {
+            return Err(LLMError::UnsupportedMessageType(
+                "Anthropic chat_stream does not support PDF attachments yet; \
+                 use the non-streaming chat path instead"
+                    .into(),
+            ));
+        }
+
         let anthropic_messages: Vec<AnthropicMessage> = messages
             .iter()
             .map(|m| AnthropicMessage {
@@ -826,7 +839,7 @@ impl ChatProvider for Anthropic {
                         tool_output: None,
                         cache_control: m.cache_control.clone(),
                     }],
-                    MessageType::Pdf(_) => unimplemented!(),
+                    MessageType::Pdf(_) => unreachable!("PDF messages filtered out above"),
                     MessageType::Image((image_mime, raw_bytes)) => {
                         vec![MessageContent {
                             message_type: Some("image"),
@@ -922,6 +935,21 @@ impl ChatProvider for Anthropic {
     {
         if self.config.api_key.is_empty() {
             return Err(LLMError::AuthError("Missing Anthropic API key".to_string()));
+        }
+
+        // PDF attachments are not yet plumbed through the Anthropic
+        // tool-streaming path either. Fail loudly rather than emitting a
+        // "document" content block that the streaming endpoint may not
+        // accept.
+        if messages
+            .iter()
+            .any(|m| matches!(m.message_type, MessageType::Pdf(_)))
+        {
+            return Err(LLMError::UnsupportedMessageType(
+                "Anthropic chat_stream_with_tools does not support PDF attachments yet; \
+                 use the non-streaming chat path instead"
+                    .into(),
+            ));
         }
 
         let anthropic_messages = Self::convert_messages_to_anthropic(messages);
@@ -1045,7 +1073,10 @@ impl CompletionProvider for Anthropic {
     ///
     /// Converts the completion request into a chat message format.
     async fn complete(&self, _req: &CompletionRequest) -> Result<CompletionResponse, LLMError> {
-        unimplemented!()
+        Err(LLMError::BackendNotImplemented {
+            backend: "Anthropic",
+            operation: "complete",
+        })
     }
 }
 

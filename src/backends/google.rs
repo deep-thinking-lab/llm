@@ -644,52 +644,56 @@ impl ChatProvider for Google {
                 },
             };
 
-            chat_contents.push(GoogleChatContent {
-                role,
-                parts: match &msg.message_type {
-                    MessageType::Text => vec![GoogleContentPart::Text(&msg.content)],
-                    MessageType::Image((image_mime, raw_bytes)) => {
-                        vec![GoogleContentPart::InlineData(GoogleInlineData {
-                            mime_type: image_mime.mime_type().to_string(),
-                            data: BASE64.encode(raw_bytes),
-                        })]
-                    }
-                    MessageType::ImageURL(_) => unimplemented!(),
-                    MessageType::Pdf(raw_bytes) => {
-                        vec![GoogleContentPart::InlineData(GoogleInlineData {
-                            mime_type: "application/pdf".to_string(),
-                            data: BASE64.encode(raw_bytes),
-                        })]
-                    }
-                    MessageType::Audio(_) => vec![],
-                    MessageType::ToolUse(calls) => calls
-                        .iter()
-                        .map(|call| {
-                            GoogleContentPart::FunctionCall(GoogleFunctionCall {
-                                name: call.function.name.clone(),
-                                args: serde_json::from_str(&call.function.arguments)
-                                    .unwrap_or(serde_json::Value::Null),
-                            })
+            let parts = match &msg.message_type {
+                MessageType::Text => vec![GoogleContentPart::Text(&msg.content)],
+                MessageType::Image((image_mime, raw_bytes)) => {
+                    vec![GoogleContentPart::InlineData(GoogleInlineData {
+                        mime_type: image_mime.mime_type().to_string(),
+                        data: BASE64.encode(raw_bytes),
+                    })]
+                }
+                MessageType::ImageURL(_) => {
+                    return Err(LLMError::UnsupportedMessageType(
+                        "Google Gemini chat does not accept image URLs; supply \
+                         inline image bytes via MessageType::Image instead"
+                            .into(),
+                    ));
+                }
+                MessageType::Pdf(raw_bytes) => {
+                    vec![GoogleContentPart::InlineData(GoogleInlineData {
+                        mime_type: "application/pdf".to_string(),
+                        data: BASE64.encode(raw_bytes),
+                    })]
+                }
+                MessageType::Audio(_) => vec![],
+                MessageType::ToolUse(calls) => calls
+                    .iter()
+                    .map(|call| {
+                        GoogleContentPart::FunctionCall(GoogleFunctionCall {
+                            name: call.function.name.clone(),
+                            args: serde_json::from_str(&call.function.arguments)
+                                .unwrap_or(serde_json::Value::Null),
                         })
-                        .collect(),
-                    MessageType::ToolResult(result) => result
-                        .iter()
-                        .map(|result| {
-                            let parsed_args =
-                                serde_json::from_str::<Value>(&result.function.arguments)
-                                    .unwrap_or(serde_json::Value::Null);
+                    })
+                    .collect(),
+                MessageType::ToolResult(result) => result
+                    .iter()
+                    .map(|result| {
+                        let parsed_args =
+                            serde_json::from_str::<Value>(&result.function.arguments)
+                                .unwrap_or(serde_json::Value::Null);
 
-                            GoogleContentPart::FunctionResponse(GoogleFunctionResponse {
+                        GoogleContentPart::FunctionResponse(GoogleFunctionResponse {
+                            name: result.function.name.clone(),
+                            response: GoogleFunctionResponseContent {
                                 name: result.function.name.clone(),
-                                response: GoogleFunctionResponseContent {
-                                    name: result.function.name.clone(),
-                                    content: parsed_args,
-                                },
-                            })
+                                content: parsed_args,
+                            },
                         })
-                        .collect(),
-                },
-            });
+                    })
+                    .collect(),
+            };
+            chat_contents.push(GoogleChatContent { role, parts });
         }
 
         // Remove generation_config if empty to avoid validation errors
@@ -814,52 +818,56 @@ impl ChatProvider for Google {
                 },
             };
 
-            chat_contents.push(GoogleChatContent {
-                role,
-                parts: match &msg.message_type {
-                    MessageType::Text => vec![GoogleContentPart::Text(&msg.content)],
-                    MessageType::Image((image_mime, raw_bytes)) => {
-                        vec![GoogleContentPart::InlineData(GoogleInlineData {
-                            mime_type: image_mime.mime_type().to_string(),
-                            data: BASE64.encode(raw_bytes),
-                        })]
-                    }
-                    MessageType::ImageURL(_) => unimplemented!(),
-                    MessageType::Pdf(raw_bytes) => {
-                        vec![GoogleContentPart::InlineData(GoogleInlineData {
-                            mime_type: "application/pdf".to_string(),
-                            data: BASE64.encode(raw_bytes),
-                        })]
-                    }
-                    MessageType::Audio(_) => vec![],
-                    MessageType::ToolUse(calls) => calls
-                        .iter()
-                        .map(|call| {
-                            GoogleContentPart::FunctionCall(GoogleFunctionCall {
-                                name: call.function.name.clone(),
-                                args: serde_json::from_str(&call.function.arguments)
-                                    .unwrap_or(serde_json::Value::Null),
-                            })
+            let parts = match &msg.message_type {
+                MessageType::Text => vec![GoogleContentPart::Text(&msg.content)],
+                MessageType::Image((image_mime, raw_bytes)) => {
+                    vec![GoogleContentPart::InlineData(GoogleInlineData {
+                        mime_type: image_mime.mime_type().to_string(),
+                        data: BASE64.encode(raw_bytes),
+                    })]
+                }
+                MessageType::ImageURL(_) => {
+                    return Err(LLMError::UnsupportedMessageType(
+                        "Google Gemini chat_with_tools does not accept image URLs; \
+                         supply inline image bytes via MessageType::Image instead"
+                            .into(),
+                    ));
+                }
+                MessageType::Pdf(raw_bytes) => {
+                    vec![GoogleContentPart::InlineData(GoogleInlineData {
+                        mime_type: "application/pdf".to_string(),
+                        data: BASE64.encode(raw_bytes),
+                    })]
+                }
+                MessageType::Audio(_) => vec![],
+                MessageType::ToolUse(calls) => calls
+                    .iter()
+                    .map(|call| {
+                        GoogleContentPart::FunctionCall(GoogleFunctionCall {
+                            name: call.function.name.clone(),
+                            args: serde_json::from_str(&call.function.arguments)
+                                .unwrap_or(serde_json::Value::Null),
                         })
-                        .collect(),
-                    MessageType::ToolResult(result) => result
-                        .iter()
-                        .map(|result| {
-                            let parsed_args =
-                                serde_json::from_str::<Value>(&result.function.arguments)
-                                    .unwrap_or(serde_json::Value::Null);
+                    })
+                    .collect(),
+                MessageType::ToolResult(result) => result
+                    .iter()
+                    .map(|result| {
+                        let parsed_args =
+                            serde_json::from_str::<Value>(&result.function.arguments)
+                                .unwrap_or(serde_json::Value::Null);
 
-                            GoogleContentPart::FunctionResponse(GoogleFunctionResponse {
+                        GoogleContentPart::FunctionResponse(GoogleFunctionResponse {
+                            name: result.function.name.clone(),
+                            response: GoogleFunctionResponseContent {
                                 name: result.function.name.clone(),
-                                response: GoogleFunctionResponseContent {
-                                    name: result.function.name.clone(),
-                                    content: parsed_args,
-                                },
-                            })
+                                content: parsed_args,
+                            },
                         })
-                        .collect(),
-                },
-            });
+                    })
+                    .collect(),
+            };
+            chat_contents.push(GoogleChatContent { role, parts });
         }
 
         // Convert tools to Google's format if provided

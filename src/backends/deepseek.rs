@@ -266,7 +266,10 @@ impl ChatProvider for DeepSeek {
         _messages: &[ChatMessage],
         _tools: Option<&[Tool]>,
     ) -> Result<Box<dyn ChatResponse>, LLMError> {
-        todo!()
+        Err(LLMError::BackendNotImplemented {
+            backend: "DeepSeek",
+            operation: "chat_with_tools",
+        })
     }
 }
 

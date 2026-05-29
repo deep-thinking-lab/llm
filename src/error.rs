@@ -33,6 +33,19 @@ pub enum LLMError {
     /// Retry attempts exceeded
     #[error("Retry attempts exceeded after {attempts} tries: {last_error}")]
     RetryExceeded { attempts: usize, last_error: String },
+    /// A message type (Image, Pdf, etc.) is not supported by this backend or
+    /// operation path. Distinct from `InvalidRequest` so callers can detect
+    /// and handle capability gaps explicitly.
+    #[error("Unsupported message type: {0}")]
+    UnsupportedMessageType(String),
+    /// A backend does not implement a particular operation (e.g. completion,
+    /// chat-with-tools). Surfaced instead of panicking so the call returns a
+    /// recoverable error.
+    #[error("{backend} does not implement {operation}")]
+    BackendNotImplemented {
+        backend: &'static str,
+        operation: &'static str,
+    },
 }
 
 /// Converts reqwest HTTP errors into LlmErrors
