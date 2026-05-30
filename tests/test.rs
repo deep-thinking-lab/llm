@@ -278,9 +278,10 @@ mod bedrock_tests {
                 },
                 "required": ["location"]
             }),
+            cache_control: None,
         }];
 
-        let messages = vec![ChatMessage::user("What's the weather in San Francisco?")];
+        let messages = vec![ChatMessage::user("What's the weather in SF?")];
 
         let request = ChatRequest::new(messages)
             .with_model(BedrockModel::eu(CrossRegionModel::ClaudeSonnet4))
@@ -330,9 +331,10 @@ mod bedrock_tests {
                 },
                 "required": ["expression"]
             }),
+            cache_control: None,
         }];
 
-        // First request to get tool use
+        let messages = vec![ChatMessage::user("Calculate 2+2")];
         let messages = vec![ChatMessage::user("What is 15 multiplied by 27?")];
 
         let request = ChatRequest::new(messages.clone())
@@ -664,6 +666,7 @@ mod bedrock_tests {
             name: "test_tool".to_string(),
             description: "A test tool".to_string(),
             input_schema: json!({"type": "object"}),
+            cache_control: None,
         }];
 
         let messages = vec![ChatMessage::user("Use the tool")];
