@@ -16,6 +16,8 @@ jobs:
     # if: github.event_name != 'pull_request_target'
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
       - name: Install ALSA development libraries
         run: sudo apt-get update && sudo apt-get install -y libasound2-dev
       - run: rustup update
