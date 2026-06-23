@@ -4,6 +4,7 @@ use crate::{
     LLMProvider,
 };
 
+#[cfg(feature = "mistral")]
 use crate::builder::build::helpers;
 use crate::builder::state::BuilderState;
 

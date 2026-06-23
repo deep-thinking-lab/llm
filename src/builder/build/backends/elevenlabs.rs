@@ -1,9 +1,15 @@
 use crate::{error::LLMError, LLMProvider};
 
+#[cfg(feature = "elevenlabs")]
 use super::super::helpers;
 use crate::builder::state::BuilderState;
 
+// Gated on the feature so the no-elevenlabs build does not see these as
+// dead code (an ungated `cargo fix` pass removed them, breaking the
+// elevenlabs/full builds — restore them gated to fix the cross-feature break).
+#[cfg(feature = "elevenlabs")]
 const DEFAULT_ELEVENLABS_MODEL: &str = "eleven_multilingual_v2";
+#[cfg(feature = "elevenlabs")]
 const DEFAULT_ELEVENLABS_URL: &str = "https://api.elevenlabs.io/v1";
 
 #[cfg(feature = "elevenlabs")]

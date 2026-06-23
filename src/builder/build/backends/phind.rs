@@ -1,5 +1,6 @@
 use crate::{error::LLMError, LLMProvider};
 
+#[cfg(feature = "phind")]
 use super::super::helpers;
 use crate::builder::state::BuilderState;
 

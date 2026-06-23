@@ -4,6 +4,7 @@ use crate::{
     LLMProvider,
 };
 
+#[cfg(any(feature = "azure_openai", feature = "bedrock"))]
 use super::super::helpers;
 use crate::builder::state::BuilderState;
 

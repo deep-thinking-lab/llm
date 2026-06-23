@@ -1,5 +1,6 @@
 use crate::{error::LLMError, LLMProvider};
 
+#[cfg(feature = "xai")]
 use super::super::helpers;
 use crate::builder::state::BuilderState;
 
