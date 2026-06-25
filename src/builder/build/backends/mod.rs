@@ -28,7 +28,7 @@ pub(super) fn build_backend(
         LLMBackend::OpenAI => openai::build_openai(state, tools, tool_choice),
         LLMBackend::Anthropic => anthropic::build_anthropic(state, tools, tool_choice),
         LLMBackend::Ollama => ollama::build_ollama(state, tools),
-        LLMBackend::DeepSeek => deepseek::build_deepseek(state),
+        LLMBackend::DeepSeek => openai_compatible::build_deepseek_compat(state, tools, tool_choice),
         LLMBackend::XAI => xai::build_xai(state),
         LLMBackend::Phind => phind::build_phind(state),
         LLMBackend::Google => google::build_google(state, tools),

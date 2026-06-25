@@ -8,11 +8,12 @@ use crate::chat::{ChatResponse, Tool};
 #[cfg(feature = "deepseek")]
 use crate::{
     builder::LLMBackend,
-    chat::{ChatMessage, ChatProvider, ChatRole},
+    chat::{ChatMessage, ChatProvider, ChatRole, StructuredOutputFormat, ToolChoice},
     completion::{CompletionProvider, CompletionRequest, CompletionResponse},
     embedding::EmbeddingProvider,
     error::LLMError,
     models::{ModelListRequest, ModelListResponse, ModelsProvider, StandardModelListResponse},
+    providers::openai_compatible::{OpenAICompatibleProvider, OpenAIProviderConfig},
     stt::SpeechToTextProvider,
     tts::TextToSpeechProvider,
     LLMProvider,
@@ -330,6 +331,138 @@ impl LLMProvider for DeepSeek {}
 
 #[async_trait]
 impl TextToSpeechProvider for DeepSeek {
+    async fn speech(&self, _text: &str) -> Result<Vec<u8>, LLMError> {
+        Err(LLMError::ProviderError(
+            "Text to speech not supported".to_string(),
+        ))
+    }
+}
+
+/// OpenAI-compatible config so DeepSeek gets /chat/completions + tool-calling
+/// (the native backend above does not implement chat_with_tools).
+pub struct DeepSeekCompatConfig;
+
+impl OpenAIProviderConfig for DeepSeekCompatConfig {
+    const PROVIDER_NAME: &'static str = "DeepSeek";
+    const DEFAULT_BASE_URL: &'static str = "https://api.deepseek.com/v1/";
+    const DEFAULT_MODEL: &'static str = "deepseek-chat";
+    const SUPPORTS_REASONING_EFFORT: bool = true;
+    const SUPPORTS_STRUCTURED_OUTPUT: bool = true;
+    const SUPPORTS_PARALLEL_TOOL_CALLS: bool = true;
+}
+
+pub type DeepSeekCompat = OpenAICompatibleProvider<DeepSeekCompatConfig>;
+
+impl DeepSeekCompat {
+    /// Creates a new DeepSeek client with the specified OpenAI-compatible configuration.
+    #[allow(clippy::too_many_arguments)]
+    pub fn with_config(
+        api_key: impl Into<String>,
+        base_url: Option<String>,
+        model: Option<String>,
+        max_tokens: Option<u32>,
+        temperature: Option<f32>,
+        timeout_seconds: Option<u64>,
+        system: Option<String>,
+        top_p: Option<f32>,
+        top_k: Option<u32>,
+        tools: Option<Vec<Tool>>,
+        tool_choice: Option<ToolChoice>,
+        extra_body: Option<serde_json::Value>,
+        embedding_encoding_format: Option<String>,
+        embedding_dimensions: Option<u32>,
+        reasoning_effort: Option<String>,
+        json_schema: Option<StructuredOutputFormat>,
+        parallel_tool_calls: Option<bool>,
+        normalize_response: Option<bool>,
+    ) -> Self {
+        OpenAICompatibleProvider::<DeepSeekCompatConfig>::new(
+            api_key,
+            base_url,
+            model,
+            max_tokens,
+            temperature,
+            timeout_seconds,
+            system,
+            top_p,
+            top_k,
+            tools,
+            tool_choice,
+            reasoning_effort,
+            json_schema,
+            None, // voice - not supported by DeepSeek
+            extra_body,
+            parallel_tool_calls,
+            normalize_response,
+            embedding_encoding_format,
+            embedding_dimensions,
+        )
+    }
+}
+
+impl LLMProvider for DeepSeekCompat {
+    fn tools(&self) -> Option<&[Tool]> {
+        self.config.tools.as_deref()
+    }
+}
+
+#[async_trait]
+impl CompletionProvider for DeepSeekCompat {
+    async fn complete(&self, _req: &CompletionRequest) -> Result<CompletionResponse, LLMError> {
+        Ok(CompletionResponse {
+            text: "DeepSeek completion not implemented.".into(),
+        })
+    }
+}
+
+#[async_trait]
+impl EmbeddingProvider for DeepSeekCompat {
+    async fn embed(&self, _text: Vec<String>) -> Result<Vec<Vec<f32>>, LLMError> {
+        Err(LLMError::ProviderError(
+            "Embedding not supported".to_string(),
+        ))
+    }
+}
+
+#[async_trait]
+impl SpeechToTextProvider for DeepSeekCompat {
+    async fn transcribe(&self, _audio: Vec<u8>) -> Result<String, LLMError> {
+        Err(LLMError::ProviderError(
+            "DeepSeek does not implement speech to text endpoint yet.".into(),
+        ))
+    }
+}
+
+#[async_trait]
+impl ModelsProvider for DeepSeekCompat {
+    async fn list_models(
+        &self,
+        _request: Option<&ModelListRequest>,
+    ) -> Result<Box<dyn ModelListResponse>, LLMError> {
+        if self.config.api_key.is_empty() {
+            return Err(LLMError::AuthError("Missing DeepSeek API key".to_string()));
+        }
+
+        let url = format!("{}/models", DeepSeekCompatConfig::DEFAULT_BASE_URL);
+
+        let resp = self
+            .client
+            .get(&url)
+            .bearer_auth(&self.config.api_key)
+            .send()
+            .await?
+            .error_for_status()?;
+
+        let result = StandardModelListResponse {
+            inner: resp.json().await?,
+            backend: LLMBackend::DeepSeek,
+        };
+        Ok(Box::new(result))
+    }
+}
+
+#[async_trait]
+impl TextToSpeechProvider for DeepSeekCompat {
     async fn speech(&self, _text: &str) -> Result<Vec<u8>, LLMError> {
         Err(LLMError::ProviderError(
             "Text to speech not supported".to_string(),

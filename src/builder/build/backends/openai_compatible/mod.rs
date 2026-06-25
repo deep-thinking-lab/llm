@@ -1,4 +1,5 @@
 mod cohere;
+mod deepseek;
 mod groq;
 mod huggingface;
 mod mistral;
@@ -17,6 +18,14 @@ pub(super) fn build_groq(
     tool_choice: Option<ToolChoice>,
 ) -> Result<Box<dyn LLMProvider>, LLMError> {
     groq::build_groq(state, tools, tool_choice)
+}
+
+pub(super) fn build_deepseek_compat(
+    state: &mut BuilderState,
+    tools: Option<Vec<Tool>>,
+    tool_choice: Option<ToolChoice>,
+) -> Result<Box<dyn LLMProvider>, LLMError> {
+    deepseek::build_deepseek_compat(state, tools, tool_choice)
 }
 
 pub(super) fn build_openrouter(
