@@ -4,6 +4,7 @@ use super::super::helpers;
 use crate::builder::state::BuilderState;
 
 #[cfg(feature = "deepseek")]
+#[allow(dead_code)]
 pub(super) fn build_deepseek(state: &mut BuilderState) -> Result<Box<dyn LLMProvider>, LLMError> {
     let api_key = helpers::require_api_key(state, "DeepSeek")?;
     let timeout = helpers::timeout_or_default(state);
@@ -21,6 +22,7 @@ pub(super) fn build_deepseek(state: &mut BuilderState) -> Result<Box<dyn LLMProv
 }
 
 #[cfg(not(feature = "deepseek"))]
+#[allow(dead_code)]
 pub(super) fn build_deepseek(_state: &mut BuilderState) -> Result<Box<dyn LLMProvider>, LLMError> {
     Err(LLMError::InvalidRequest(
         "DeepSeek feature not enabled".to_string(),
