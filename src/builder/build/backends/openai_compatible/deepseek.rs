@@ -30,7 +30,7 @@ pub(super) fn build_deepseek_compat(
         state.extra_body.take(),
         None,
         None,
-        None,
+        state.reasoning_effort.take(),
         state.json_schema.take(),
         state.enable_parallel_tool_use,
         state.normalize_response,
